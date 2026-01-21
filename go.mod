@@ -1,9 +1,13 @@
 module packet-capture
 
-go 1.18
+go 1.24
 
 require (
+	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
-	golang.org/x/sys v0.0.0-20190412213103-97732733099d // indirect
+	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/refraction-networking/utls v1.8.2 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
 )
