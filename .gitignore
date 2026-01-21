@@ -1,0 +1,12 @@
+# compiled files
+client
+client.exe
+main
+main.exe
+
+# pcap files
+*.pcap
+
+# IDE configuration files
+.vscode/
+.idea/
