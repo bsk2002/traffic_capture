@@ -8,22 +8,21 @@ from tqdm import tqdm
 
 def extract_pure_payload(pkt):
     """
-    [논문 준수] Bias 제거를 위해 L2/L3/L4 헤더를 모두 날리고 Payload만 추출
-    (사용자 요청: TCP/UDP의 경우 Port(4바이트)만 제거하고 나머지 헤더 정보는 유지하는 로직)
+    Bias 제거를 위해 L2/L3/L4 헤더를 모두 날리고 Payload만 추출
     """
     try:
         # if pkt.haslayer(TCP):
+        #     # Src Port + Dst Port
         #     raw_tcp = bytes(pkt[TCP])
-        #     # 앞 4바이트(Src Port + Dst Port)만 잘라내고 나머지 반환
         #     return raw_tcp[4:]
             
         # elif pkt.haslayer(UDP):
+        #     # Src Port + Dst Port
         #     raw_udp = bytes(pkt[UDP])
-        #     # 앞 4바이트(Src Port + Dst Port)만 잘라냄
         #     return raw_udp[4:]
             
         # elif pkt.haslayer(IP):
-        #     # TCP/UDP가 없는 IP 패킷(ICMP 등)은 IP 헤더 제외하고 Payload만 사용
+        #     # Payload만 사용
         #     return bytes(pkt[IP].payload)
         # else:
         #     return b""
@@ -105,7 +104,7 @@ def process_and_split(pcap_dir, output_dir, split_ratio=(8, 1, 1)):
             # 에러 발생 시 건너뜀
             continue
 
-    # 4. 데이터 분할 및 저장 (8:1:1) [cite: 295]
+    # 4. 데이터 분할 및 저장 (8:1:1)
     print("\n데이터 분할 및 저장 중...")
     random.seed(42)
     random.shuffle(all_dataset)
