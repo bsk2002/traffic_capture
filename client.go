@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"crypto/tls"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
