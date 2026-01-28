@@ -1,82 +1,319 @@
-3gppnetwork.org
-a2z.com
-aaplimg.com
-aiv-delivery.net
-akadns.net
-akamai.net
-akamaiedge.net
-akamaized.net
-allawnos.com
-amazon.dev
-amazonaws.com
-apple-dns.net
-avcdn.net
-avsxappcaptiveportal.com
-aws.dev
-ax-msedge.net
-azureedge.net
-azurefd.net
-bamgrid.com
-bytefcdn-oversea.com
-byteglb.com
-byteoversea.net
-capcutapi.com
-cdn-apple.com
-cdn77.org
-cdninstagram.com
-clarity.ms
-cloudfront.net
-demdex.net
-douyincdn.com
-edgekey.net
-edgesuite.net
-fastly-edge.com
-firetvcaptiveportal.com
-gamepass.com
-ggpht.com
-googlevideo.com
-gvt1.com
-gvt2.com
-heytapdl.com
-heytapmobile.com
-ibyteimg.com
-inner-active.mobi
-jsdelivr.net
-kwai-pro.com
-kwai.net
-kwaipros.com
-mail.ru
-media-amazon.com
-microsoftonline.com
-msedge.net
-msftconnecttest.com
-msftncsi.com
-msidentity.com
-mtgglobals.com
-netflix.com
-nflximg.com
-nflxso.net
-nr-data.net
-office.net
-pangle.io
-playstation.net
-roblox.com
-samsungcloud.com
-samsungcloudsolution.com
-samsungqbe.com
-sc-cdn.net
-scdn.co
-steamserver.net
-tiktokcdn-eu.com
-tiktokcdn-us.com
-tiktokcdn.com
-tiktokv.eu
-tiktokv.us
-trafficmanager.net
-ttdns2.com
-unity3d.com
-windows.net
-windowsupdate.com
-xboxlive.com
-yandex.ru
-ytimg.com
+Round 1: 3gppnetwork.org
+Round 1: a2z.com
+Round 1: aaplimg.com
+Round 1: aiv-delivery.net
+Round 1: akadns.net
+Round 1: akamai.net
+Round 1: akamaiedge.net
+Round 1: akamaized.net
+Round 1: allawnos.com
+Round 1: amazon.dev
+Round 1: amazonaws.com
+Round 1: apple-dns.net
+Round 1: avcdn.net
+Round 1: avsxappcaptiveportal.com
+Round 1: aws.dev
+Round 1: ax-msedge.net
+Round 1: azureedge.net
+Round 1: azurefd.net
+Round 1: bamgrid.com
+Round 1: bytefcdn-oversea.com
+Round 1: byteglb.com
+Round 1: byteoversea.net
+Round 1: capcutapi.com
+Round 1: cdn-apple.com
+Round 1: cdn77.org
+Round 1: cdninstagram.com
+Round 1: clarity.ms
+Round 1: cloudfront.net
+Round 1: demdex.net
+Round 1: douyincdn.com
+Round 1: edgekey.net
+Round 1: edgesuite.net
+Round 1: fastly-edge.com
+Round 1: firetvcaptiveportal.com
+Round 1: gamepass.com
+Round 1: ggpht.com
+Round 1: googlevideo.com
+Round 1: gvt1.com
+Round 1: gvt2.com
+Round 1: heytapdl.com
+Round 1: heytapmobile.com
+Round 1: ibyteimg.com
+Round 1: inner-active.mobi
+Round 1: jsdelivr.net
+Round 1: kwai-pro.com
+Round 1: kwai.net
+Round 1: kwaipros.com
+Round 1: media-amazon.com
+Round 1: microsoftonline.com
+Round 1: msedge.net
+Round 1: msftconnecttest.com
+Round 1: msftncsi.com
+Round 1: msidentity.com
+Round 1: mtgglobals.com
+Round 1: netflix.com
+Round 1: nflximg.com
+Round 1: nflxso.net
+Round 1: nr-data.net
+Round 1: office.net
+Round 1: pangle.io
+Round 1: playstation.net
+Round 1: samsungcloud.com
+Round 1: samsungcloudsolution.com
+Round 1: samsungqbe.com
+Round 1: sc-cdn.net
+Round 1: scdn.co
+Round 1: steamserver.net
+Round 1: tiktokcdn-eu.com
+Round 1: tiktokcdn-us.com
+Round 1: tiktokcdn.com
+Round 1: tiktokv.eu
+Round 1: tiktokv.us
+Round 1: trafficmanager.net
+Round 1: ttdns2.com
+Round 1: ubuntu.com
+Round 1: unity3d.com
+Round 1: windows.net
+Round 1: windowsupdate.com
+Round 1: xboxlive.com
+Round 1: ytimg.com
+Round 2: 3gppnetwork.org
+Round 2: a2z.com
+Round 2: aaplimg.com
+Round 2: aiv-delivery.net
+Round 2: akadns.net
+Round 2: akamai.net
+Round 2: akamaiedge.net
+Round 2: akamaized.net
+Round 2: allawnos.com
+Round 2: amazon.dev
+Round 2: amazonaws.com
+Round 2: apple-dns.net
+Round 2: avcdn.net
+Round 2: avsxappcaptiveportal.com
+Round 2: aws.dev
+Round 2: ax-msedge.net
+Round 2: azureedge.net
+Round 2: azurefd.net
+Round 2: bamgrid.com
+Round 2: bytefcdn-oversea.com
+Round 2: byteglb.com
+Round 2: byteoversea.net
+Round 2: capcutapi.com
+Round 2: cdn-apple.com
+Round 2: cdn77.org
+Round 2: cdninstagram.com
+Round 2: clarity.ms
+Round 2: cloudfront.net
+Round 2: demdex.net
+Round 2: douyincdn.com
+Round 2: edgekey.net
+Round 2: edgesuite.net
+Round 2: fastly-edge.com
+Round 2: firetvcaptiveportal.com
+Round 2: gamepass.com
+Round 2: ggpht.com
+Round 2: googlevideo.com
+Round 2: gvt1.com
+Round 2: gvt2.com
+Round 2: heytapdl.com
+Round 2: heytapmobile.com
+Round 2: ibyteimg.com
+Round 2: inner-active.mobi
+Round 2: jsdelivr.net
+Round 2: kwai-pro.com
+Round 2: kwai.net
+Round 2: kwaipros.com
+Round 2: media-amazon.com
+Round 2: microsoftonline.com
+Round 2: msedge.net
+Round 2: msftconnecttest.com
+Round 2: msftncsi.com
+Round 2: msidentity.com
+Round 2: mtgglobals.com
+Round 2: netflix.com
+Round 2: nflximg.com
+Round 2: nflxso.net
+Round 2: nr-data.net
+Round 2: office.net
+Round 2: pangle.io
+Round 2: playstation.net
+Round 2: samsungcloud.com
+Round 2: samsungcloudsolution.com
+Round 2: samsungqbe.com
+Round 2: sc-cdn.net
+Round 2: scdn.co
+Round 2: steamserver.net
+Round 2: tiktokcdn-eu.com
+Round 2: tiktokcdn-us.com
+Round 2: tiktokcdn.com
+Round 2: tiktokv.eu
+Round 2: tiktokv.us
+Round 2: trafficmanager.net
+Round 2: ttdns2.com
+Round 2: unity3d.com
+Round 2: windows.net
+Round 2: windowsupdate.com
+Round 2: xboxlive.com
+Round 2: ytimg.com
+Round 3: 3gppnetwork.org
+Round 3: a2z.com
+Round 3: aaplimg.com
+Round 3: aiv-delivery.net
+Round 3: akadns.net
+Round 3: akamai.net
+Round 3: akamaiedge.net
+Round 3: akamaized.net
+Round 3: allawnos.com
+Round 3: amazon.dev
+Round 3: amazonaws.com
+Round 3: apple-dns.net
+Round 3: avcdn.net
+Round 3: avsxappcaptiveportal.com
+Round 3: aws.dev
+Round 3: ax-msedge.net
+Round 3: azureedge.net
+Round 3: azurefd.net
+Round 3: bamgrid.com
+Round 3: bytefcdn-oversea.com
+Round 3: byteglb.com
+Round 3: byteoversea.net
+Round 3: capcutapi.com
+Round 3: cdn-apple.com
+Round 3: cdn77.org
+Round 3: cdninstagram.com
+Round 3: clarity.ms
+Round 3: cloudfront.net
+Round 3: demdex.net
+Round 3: douyincdn.com
+Round 3: edgekey.net
+Round 3: edgesuite.net
+Round 3: fastly-edge.com
+Round 3: firetvcaptiveportal.com
+Round 3: gamepass.com
+Round 3: ggpht.com
+Round 3: googlevideo.com
+Round 3: gvt1.com
+Round 3: gvt2.com
+Round 3: heytapdl.com
+Round 3: heytapmobile.com
+Round 3: ibyteimg.com
+Round 3: inner-active.mobi
+Round 3: jsdelivr.net
+Round 3: kwai-pro.com
+Round 3: kwai.net
+Round 3: kwaipros.com
+Round 3: media-amazon.com
+Round 3: microsoftonline.com
+Round 3: miui.com
+Round 3: msedge.net
+Round 3: msftconnecttest.com
+Round 3: msftncsi.com
+Round 3: msidentity.com
+Round 3: mtgglobals.com
+Round 3: netflix.com
+Round 3: nflximg.com
+Round 3: nflxso.net
+Round 3: nr-data.net
+Round 3: office.net
+Round 3: pangle.io
+Round 3: playstation.net
+Round 3: samsungcloud.com
+Round 3: samsungcloudsolution.com
+Round 3: samsungqbe.com
+Round 3: sc-cdn.net
+Round 3: scdn.co
+Round 3: steamserver.net
+Round 3: tiktokcdn-eu.com
+Round 3: tiktokcdn-us.com
+Round 3: tiktokcdn.com
+Round 3: tiktokv.eu
+Round 3: tiktokv.us
+Round 3: trafficmanager.net
+Round 3: ttdns2.com
+Round 3: unity3d.com
+Round 3: windows.net
+Round 3: windowsupdate.com
+Round 3: xboxlive.com
+Round 3: ytimg.com
+Round 4: 3gppnetwork.org
+Round 4: a2z.com
+Round 4: aaplimg.com
+Round 4: aiv-delivery.net
+Round 4: akadns.net
+Round 4: akamai.net
+Round 4: akamaiedge.net
+Round 4: akamaized.net
+Round 4: allawnos.com
+Round 4: amazon.dev
+Round 4: amazonaws.com
+Round 4: apple-dns.net
+Round 4: avcdn.net
+Round 4: avsxappcaptiveportal.com
+Round 4: aws.dev
+Round 4: ax-msedge.net
+Round 4: azureedge.net
+Round 4: azurefd.net
+Round 4: bamgrid.com
+Round 4: bytefcdn-oversea.com
+Round 4: byteglb.com
+Round 4: byteoversea.net
+Round 4: capcutapi.com
+Round 4: cdn-apple.com
+Round 4: cdn77.org
+Round 4: cdninstagram.com
+Round 4: clarity.ms
+Round 4: cloudfront.net
+Round 4: demdex.net
+Round 4: douyincdn.com
+Round 4: edgekey.net
+Round 4: edgesuite.net
+Round 4: fastly-edge.com
+Round 4: firetvcaptiveportal.com
+Round 4: gamepass.com
+Round 4: ggpht.com
+Round 4: googlevideo.com
+Round 4: gvt1.com
+Round 4: gvt2.com
+Round 4: heytapdl.com
+Round 4: heytapmobile.com
+Round 4: ibyteimg.com
+Round 4: inner-active.mobi
+Round 4: jsdelivr.net
+Round 4: kwai-pro.com
+Round 4: kwai.net
+Round 4: kwaipros.com
+Round 4: media-amazon.com
+Round 4: microsoftonline.com
+Round 4: msedge.net
+Round 4: msftconnecttest.com
+Round 4: msftncsi.com
+Round 4: msidentity.com
+Round 4: mtgglobals.com
+Round 4: netflix.com
+Round 4: nflximg.com
+Round 4: nflxso.net
+Round 4: nr-data.net
+Round 4: office.net
+Round 4: pangle.io
+Round 4: playstation.net
+Round 4: samsungcloud.com
+Round 4: samsungcloudsolution.com
+Round 4: samsungqbe.com
+Round 4: sc-cdn.net
+Round 4: scdn.co
+Round 4: steamserver.net
+Round 4: tiktokcdn-eu.com
+Round 4: tiktokcdn-us.com
+Round 4: tiktokcdn.com
+Round 4: tiktokv.eu
+Round 4: tiktokv.us
+Round 4: trafficmanager.net
+Round 4: ttdns2.com
+Round 4: ubuntu.com
+Round 4: unity3d.com
+Round 4: windows.net
+Round 4: windowsupdate.com
+Round 4: xboxlive.com
+Round 4: ytimg.com
