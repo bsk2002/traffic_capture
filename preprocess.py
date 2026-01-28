@@ -27,7 +27,7 @@ def extract_pure_payload(pkt):
         #     return bytes(pkt[IP].payload)
         # else:
         #     return b""
-        return pkt
+        return bytes(pkt)
     except Exception as e:
         return b""
 
