@@ -1,67 +1,71 @@
 #!/bin/bash
 
 # --- 설정 구간 ---
-CSV_FILE="cloudflare-radar_top-200-domains_20260119-20260126.csv"          # 도메인 목록 파일
-EXE="./main"                    # 빌드된 Go 실행 파일 이름
-OUTPUT_DIR="./captures"         # 성공한 pcap 저장 폴더
-DROPPED_FILE="dropped.txt"      # 실패한 도메인 기록 파일
-TEMP_PCAP_PATTERN="website_capture_*.pcap"
+CSV_FILE="cloudflare-radar_top-200-domains_20260119-20260126.csv"
+BLACKLIST_FILE="dropped.txt"
+EXE="./main"
+OUTPUT_DIR="./captures"
+ITERATIONS=500
+CONCURRENCY=10  # 동시 실행 프로세스 수
+FAILED_LOG="failed_domains.log"
 
-# 초기화
 mkdir -p "$OUTPUT_DIR"
-> "$DROPPED_FILE" # 기존 파일 비우기
 
-echo ">>> [System] Starting automation for 200 domains..."
+# 1. 유효한 도메인 리스트 생성 (블랙리스트 제외)
+VALID_DOMAINS_FILE="valid_domains.tmp"
+> "$VALID_DOMAINS_FILE"
 
-# --- 실행 구간 ---
+declare -A BLACKLIST
+if [ -f "$BLACKLIST_FILE" ]; then
+    while IFS= read -r line; do
+        # 도메인 이름만 추출
+        clean_domain=$(echo "$line" | awk '{print $NF}' | xargs)
+        [ -n "$clean_domain" ] && BLACKLIST["$clean_domain"]=1
+    done < "$BLACKLIST_FILE"
+fi
+
 while IFS=, read -r RAW_DOMAIN || [ -n "$RAW_DOMAIN" ]; do
-    # 1. 전처리 (공백, 따옴표 제거)
     DOMAIN=$(echo "$RAW_DOMAIN" | tr -d '\r\n"' | xargs)
-    
-    # 빈 줄이나 헤더 제외
-    if [[ -z "$DOMAIN" || "$DOMAIN" == "domain" ]]; then
-        continue
+    if [[ -n "$DOMAIN" && "$DOMAIN" != "domain" && ! ${BLACKLIST["$DOMAIN"]} ]]; then
+        echo "$DOMAIN" >> "$VALID_DOMAINS_FILE"
     fi
-
-    echo "----------------------------------------------------"
-    echo "[Target] Domain: $DOMAIN"
-
-    SUCCESS=false
-
-    # 2. HTTPS 시도
-    echo "  >> Trying https://$DOMAIN..."
-    $EXE "https://$DOMAIN"
-    
-    if [ $? -eq 0 ]; then
-        SUCCESS=true
-        PROTOCOL="HTTPS"
-    fi
-
-    # 3. 결과 처리
-    if [ "$SUCCESS" = true ]; then
-        echo "  [OK] Successfully captured via https://$DOMAIN."
-        
-        # 파일명 변경 (가장 최근에 생성된 pcap 찾기)
-        LATEST_FILE=$(ls -t $TEMP_PCAP_PATTERN 2>/dev/null | head -n 1)
-        if [ -n "$LATEST_FILE" ]; then
-            SAFE_DOMAIN=$(echo "$DOMAIN" | tr '.' '_')
-            TIMESTAMP=$(date +"%H%M%S")
-            mv "$LATEST_FILE" "$OUTPUT_DIR/${SAFE_DOMAIN}_${TIMESTAMP}.pcap"
-        fi
-    else
-        # 5. 모든 시도 실패 시 기록
-        echo "  [FAIL] HTTPS failed. Dropping."
-        echo "$DOMAIN" >> "$DROPPED_FILE"
-
-        [ -f "$LATEST_FILE" ] && rm -f "$LATEST_FILE"
-    fi
-
-    # 네트워크 대기 (서버 차단 방지)
-    sleep 2
-
 done < "$CSV_FILE"
 
-echo "----------------------------------------------------"
+# 2. 캡처 실행 함수 정의 (xargs에서 호출)
+do_capture() {
+    DOMAIN=$1
+    ROUND=$2
+    SAFE_DOMAIN=$(echo "$DOMAIN" | tr '.' '_')
+    TIMESTAMP=$(date +"%H%M%S_%N") # 나노초 단위 포함
+    
+    FILENAME="${SAFE_DOMAIN}_R${ROUND}_${TIMESTAMP}.pcap"
+    
+    # Go 실행 (URL과 고유 파일명을 인자로 전달)
+    timeout -s 9 30s ./main "https://$DOMAIN" "$FILENAME" > /dev/null 2>&1 
+    
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -eq 0 ]; then
+        if [ -f "$FILENAME" ]; then
+            mv "$FILENAME" "$OUTPUT_DIR/" 2>/dev/null
+	else
+	    echo "[ROUND $ROUND] $DOMAIN - File not found" >> "$FAILED_LOG"
+	fi
+    else
+        echo "[ROUND $ROUND] $DOMAIN - Exit Code: $EXIT_CODE" >> "$FAILED_LOG"
+	
+        rm -f "$FILENAME" 2>/dev/null
+    fi
+}
+export -f do_capture
+export OUTPUT_DIR FAILED_LOG
+
+# 3. 마라톤 시작
+echo ">>> [System] Starting Parallel Capture: $ITERATIONS rounds per domain."
+for ROUND in $(seq 1 $ITERATIONS); do
+    echo ">>> ROUND $ROUND / $ITERATIONS"
+    # xargs를 이용한 병렬 처리
+    cat "$VALID_DOMAINS_FILE" | xargs -I {} -P $CONCURRENCY bash -c "do_capture {} $ROUND"
+done
+
+rm "$VALID_DOMAINS_FILE"
 echo ">>> [System] Process Finished."
-echo ">>> Successful captures: $(ls $OUTPUT_DIR | wc -l)"
-echo ">>> Dropped domains: $(wc -l < $DROPPED_FILE)"

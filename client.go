@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"crypto/tls"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -45,6 +46,7 @@ func main() {
 
 	// Configuration Variable
 	targetURL := os.Args[1]
+	outputFile := os.Args[2]
 	deviceName, err := findActiveInterface()
 
 	if err != nil {
@@ -55,8 +57,8 @@ func main() {
 	snapshotLen := int32(1600)
 	promiscuous := false
 	errTimeout := pcap.BlockForever // control in select state
-	now := time.Now().Format("20060102_150405")
-	outputFile := fmt.Sprintf("website_capture_%s.pcap", now)
+	// now := time.Now().Format("20060102_150405")
+	// outputFile := fmt.Sprintf("website_capture_%s.pcap", now)
 
 	// DNS lookup
 	u, err := url.Parse(targetURL)
@@ -74,11 +76,9 @@ func main() {
 	var ipList []string
 
 	for _, ip := range ips {
-		if ipv4 := ip.To4(); ipv4 != nil {
-			ipStr := ipv4.String()
-			ipList = append(ipList, ipStr)
-			filterParts = append(filterParts, fmt.Sprintf("host %s", ipStr))
-		}
+		ipStr := ip.String()
+		ipList = append(ipList, ipStr)
+		filterParts = append(filterParts, fmt.Sprintf("host %s", ipStr))
 	}
 
 	if len(filterParts) == 0 {
@@ -132,66 +132,71 @@ func main() {
 		// waiting 1 second for make packetSource
 		fmt.Println(">>> Attemp to connect the website after 1 second...")
 		time.Sleep(1 * time.Second)
-
+                
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS13, // 최소 버전 TLS 1.3
+			MaxVersion: tls.VersionTLS13, // 최대 버전 TLS 1.3
+			ServerName: host,             // SNI 설정
+		}
+		
 		tr := &http.Transport{
-			DisableKeepAlives: true, // Server send FIN to client: true
-
+			DisableKeepAlives: true,
+			TLSClientConfig:   tlsConfig,
 			/*
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// TCP connect
-					conn, err := net.DialTimeout(network, addr, 10*time.Second)
-					if err != nil {
-						return nil, err
-					}
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// TCP connect
+				conn, err := net.DialTimeout(network, addr, 10*time.Second)
+				if err != nil {
+					return nil, err
+				}
 
-					// wrapping utls client (using HelloCustom mode)
-					uConn := utls.UClient(conn, &utls.Config{
-						ServerName: host, // SNI setting
-					}, utls.HelloCustom)
+				// wrapping utls client (using HelloCustom mode)
+				uConn := utls.UClient(conn, &utls.Config{
+					ServerName: host, // SNI setting
+				}, utls.HelloCustom)
 
-					//[Datail] deploying GREASE
-					spec := &utls.ClientHelloSpec{
-						// CipherSuites
-						CipherSuites: []uint16{
-							utls.GREASE_PLACEHOLDER,
-							utls.TLS_AES_128_GCM_SHA256,
-							utls.TLS_AES_256_GCM_SHA384,
-							utls.GREASE_PLACEHOLDER,
-							utls.TLS_CHACHA20_POLY1305_SHA256,
-						},
-						CompressionMethods: []uint8{0}, // no compression
+				//[Datail] deploying GREASE
+				spec := &utls.ClientHelloSpec{
+					// CipherSuites
+					CipherSuites: []uint16{
+						utls.GREASE_PLACEHOLDER,
+						utls.TLS_AES_128_GCM_SHA256,
+						utls.TLS_AES_256_GCM_SHA384,
+						utls.GREASE_PLACEHOLDER,
+						utls.TLS_CHACHA20_POLY1305_SHA256,
+					},
+					CompressionMethods: []uint8{0}, // no compression
 
-						// Extensions
-						Extensions: []utls.TLSExtension{
-							&utls.UtlsGREASEExtension{},
-							&utls.SNIExtension{},
-							&utls.UtlsGREASEExtension{},
-							&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
-							&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
-							&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
-								{Group: utls.CurveP521},
-							}},
-							&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
-								utls.ECDSAWithP256AndSHA256,
-								utls.PSSWithSHA256,
-							}},
-						},
-					}
+					// Extensions
+					Extensions: []utls.TLSExtension{
+						&utls.UtlsGREASEExtension{},
+						&utls.SNIExtension{},
+						&utls.UtlsGREASEExtension{},
+						&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
+						&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
+						&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
+							{Group: utls.X25519},
+						}},
+						&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
+							utls.ECDSAWithP256AndSHA256,
+							utls.PSSWithSHA256,
+						}},
+					},
+				}
 
-					if err := uConn.ApplyPreset(spec); err != nil {
-						return nil, err
-					}
+				if err := uConn.ApplyPreset(spec); err != nil {
+					return nil, err
+				}
 
-					// handshake
-					if err := uConn.Handshake(); err != nil {
-						return nil, err
-					}
+				// handshake
+				if err := uConn.Handshake(); err != nil {
+					return nil, err
+				}
 
-					return uConn, nil
-				},
+				return uConn, nil
+			},
 			*/
 		}
-
 		client := http.Client{
 			Transport: tr,
 			Timeout:   10 * time.Second,
@@ -204,7 +209,6 @@ func main() {
 			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close() // trigger FIN or Close_Notify
 			fmt.Printf(">>> [Client] Complete loading (Status: %d)\n", resp.StatusCode)
-
 			isSuccess = true
 		}
 
@@ -290,3 +294,4 @@ Loop:
 		os.Exit(1)
 	}
 }
+
