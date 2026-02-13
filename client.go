@@ -132,69 +132,75 @@ func main() {
 		// waiting 1 second for make packetSource
 		fmt.Println(">>> Attemp to connect the website after 1 second...")
 		time.Sleep(1 * time.Second)
-                
+
+		// tlsConfig := &tls.Config{
+		// 	MinVersion: tls.VersionTLS13, // 최소 버전 TLS 1.3
+		// 	MaxVersion: tls.VersionTLS13, // 최대 버전 TLS 1.3
+		// 	ServerName: host,             // SNI 설정
+		// }
+
 		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS13, // 최소 버전 TLS 1.3
-			MaxVersion: tls.VersionTLS13, // 최대 버전 TLS 1.3
+			MinVersion: tls.VersionTLS12, // 최소 버전 TLS 1.2
+			MaxVersion: tls.VersionTLS12, // 최대 버전 TLS 1.2
 			ServerName: host,             // SNI 설정
 		}
-		
+
 		tr := &http.Transport{
 			DisableKeepAlives: true,
 			TLSClientConfig:   tlsConfig,
 			/*
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// TCP connect
-				conn, err := net.DialTimeout(network, addr, 10*time.Second)
-				if err != nil {
-					return nil, err
-				}
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					// TCP connect
+					conn, err := net.DialTimeout(network, addr, 10*time.Second)
+					if err != nil {
+						return nil, err
+					}
 
-				// wrapping utls client (using HelloCustom mode)
-				uConn := utls.UClient(conn, &utls.Config{
-					ServerName: host, // SNI setting
-				}, utls.HelloCustom)
+					// wrapping utls client (using HelloCustom mode)
+					uConn := utls.UClient(conn, &utls.Config{
+						ServerName: host, // SNI setting
+					}, utls.HelloCustom)
 
-				//[Datail] deploying GREASE
-				spec := &utls.ClientHelloSpec{
-					// CipherSuites
-					CipherSuites: []uint16{
-						utls.GREASE_PLACEHOLDER,
-						utls.TLS_AES_128_GCM_SHA256,
-						utls.TLS_AES_256_GCM_SHA384,
-						utls.GREASE_PLACEHOLDER,
-						utls.TLS_CHACHA20_POLY1305_SHA256,
-					},
-					CompressionMethods: []uint8{0}, // no compression
+					//[Datail] deploying GREASE
+					spec := &utls.ClientHelloSpec{
+						// CipherSuites
+						CipherSuites: []uint16{
+							utls.GREASE_PLACEHOLDER,
+							utls.TLS_AES_128_GCM_SHA256,
+							utls.TLS_AES_256_GCM_SHA384,
+							utls.GREASE_PLACEHOLDER,
+							utls.TLS_CHACHA20_POLY1305_SHA256,
+						},
+						CompressionMethods: []uint8{0}, // no compression
 
-					// Extensions
-					Extensions: []utls.TLSExtension{
-						&utls.UtlsGREASEExtension{},
-						&utls.SNIExtension{},
-						&utls.UtlsGREASEExtension{},
-						&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
-						&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
-						&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
-							{Group: utls.X25519},
-						}},
-						&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
-							utls.ECDSAWithP256AndSHA256,
-							utls.PSSWithSHA256,
-						}},
-					},
-				}
+						// Extensions
+						Extensions: []utls.TLSExtension{
+							&utls.UtlsGREASEExtension{},
+							&utls.SNIExtension{},
+							&utls.UtlsGREASEExtension{},
+							&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
+							&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
+							&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
+								{Group: utls.X25519},
+							}},
+							&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
+								utls.ECDSAWithP256AndSHA256,
+								utls.PSSWithSHA256,
+							}},
+						},
+					}
 
-				if err := uConn.ApplyPreset(spec); err != nil {
-					return nil, err
-				}
+					if err := uConn.ApplyPreset(spec); err != nil {
+						return nil, err
+					}
 
-				// handshake
-				if err := uConn.Handshake(); err != nil {
-					return nil, err
-				}
+					// handshake
+					if err := uConn.Handshake(); err != nil {
+						return nil, err
+					}
 
-				return uConn, nil
-			},
+					return uConn, nil
+				},
 			*/
 		}
 		client := http.Client{
@@ -294,4 +300,3 @@ Loop:
 		os.Exit(1)
 	}
 }
-

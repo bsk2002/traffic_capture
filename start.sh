@@ -5,7 +5,7 @@ CSV_FILE="cloudflare-radar_top-200-domains_20260119-20260126.csv"
 BLACKLIST_FILE="dropped.txt"
 EXE="./main"
 OUTPUT_DIR="./captures"
-ITERATIONS=500
+ITERATIONS=50
 CONCURRENCY=10  # 동시 실행 프로세스 수
 FAILED_LOG="failed_domains.log"
 
