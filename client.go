@@ -1,302 +1,300 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/pcapgo"
+	utls "github.com/refraction-networking/utls"
+	"golang.org/x/net/http2"
 )
 
-func findActiveInterface() (string, error) {
-	devices, err := pcap.FindAllDevs()
-	if err != nil {
-		return "", err
-	}
+const (
+	targetFile    = "final_urls.txt"
+	interfaceName = "eno1"
+	snapLen       = 65535
+)
 
-	// 1순위: IP가 있고 Loopback이 아닌 실제 장치 찾기
-	for _, device := range devices {
-		for _, addr := range device.Addresses {
-			// IP가 있고(IPv4), 루프백(127.0.0.1)이 아닌 것
-			if addr.IP.To4() != nil && !addr.IP.IsLoopback() {
-				return device.Name, nil
-			}
+func main() {
+	// 1. 실패 로그 파일 오픈 (Append 모드)
+	failFile, err := os.OpenFile("failed_urls.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("[오류] 실패 로그 파일을 생성할 수 없습니다: %v\n", err)
+	}
+	defer failFile.Close()
+
+	// 2. 대상 파일 읽기 및 슬라이스 저장
+	file, err := os.Open(targetFile)
+	if err != nil {
+		log.Fatalf("[오류] %s 파일을 열 수 없습니다: %v\n", targetFile, err)
+	}
+	defer file.Close()
+
+	var urls []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			urls = append(urls, line)
 		}
 	}
 
-	// 2순위: 적당한 걸 못 찾으면 목록의 첫 번째 장치 반환 (fallback)
-	if len(devices) > 0 {
-		return devices[0].Name, nil
+	// 3. 리스트 셔플 (동일 도메인 연속 요청 방지)
+	fmt.Printf("[정보] 총 %d개의 URL을 로드했습니다. 순서를 섞는 중...\n", len(urls))
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(urls), func(i, j int) {
+		urls[i], urls[j] = urls[j], urls[i]
+	})
+
+	// 4. 병렬 처리를 위한 채널 및 WaitGroup 설정
+	urlChan := make(chan string)
+	var wg sync.WaitGroup
+
+	// 작업자 수 설정 (24스레드 환경이므로 20~30개 추천)
+	// 너무 높으면 네트워크 인터페이스 부하가 생길 수 있음
+	workerCount := 15
+
+	fmt.Printf("[정보] %d개의 워커로 수집을 시작합니다.\n", workerCount)
+
+	// 5. Worker 실행
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for url := range urlChan {
+				processTarget(url, failFile)
+			}
+		}(i)
 	}
 
-	return "", fmt.Errorf("no interfaces found")
+	// 6. 셔플된 URL을 채널에 투입
+	for _, url := range urls {
+		urlChan <- url
+	}
+
+	// 7. 종료 처리
+	close(urlChan)
+	wg.Wait()
+
+	fmt.Println("[완료] 모든 대상의 병렬 트래픽 캡처가 종료되었습니다.")
 }
 
-func main() {
+func processTarget(rawURL string, failFile *os.File) {
+	// 실패 기록을 위한 헬퍼 함수
+	logFailure := func(reason string, err error) {
+		errorMessage := fmt.Sprintf("[실패] %s (%s): %v", rawURL, reason, err)
+		log.Println(errorMessage)
+		// failed_urls.txt에 URL 기록
+		if failFile != nil {
+			failFile.WriteString(fmt.Sprintf("%s\n", rawURL))
+		}
+	}
 
-	// Configuration Variable
-	targetURL := os.Args[1]
-	outputFile := os.Args[2]
-	deviceName, err := findActiveInterface()
+	// 1. URL 정리 및 파싱
+	urlStr := rawURL
+	if !strings.HasPrefix(urlStr, "http") {
+		urlStr = "https://" + urlStr
+	}
 
+	u, err := url.Parse(urlStr)
 	if err != nil {
-		log.Fatal("네트워크 인터페이스 탐색 실패:", err)
+		logFailure("URL 파싱 불가", err)
+		return
 	}
-	fmt.Printf(">>> Auto-detected Interface: %s\n", deviceName)
 
-	snapshotLen := int32(1600)
-	promiscuous := false
-	errTimeout := pcap.BlockForever // control in select state
-	// now := time.Now().Format("20060102_150405")
-	// outputFile := fmt.Sprintf("website_capture_%s.pcap", now)
+	domain := u.Hostname()
+	path := u.RequestURI()
+	if path == "" {
+		path = "/"
+	}
 
-	// DNS lookup
-	u, err := url.Parse(targetURL)
+	fmt.Printf("[시작] 대상: %s (SNI: %s, Path: %s)\n", rawURL, domain, path)
+
+	// 2. DNS 조회 (도메인만 사용)
+	ips, err := net.LookupIP(domain)
+	if err != nil || len(ips) == 0 {
+		logFailure("IP 해석 불가", err)
+		return
+	}
+	targetIP := ips[0].String()
+
+	// 3. PCAP 핸들 오픈
+	handle, err := pcap.OpenLive(interfaceName, snapLen, true, 100*time.Millisecond)
 	if err != nil {
-		log.Fatal("URL parsing failed:", err)
-	}
-
-	host := u.Hostname()
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		log.Fatal("IP lookup failed:", err)
-	}
-
-	var filterParts []string
-	var ipList []string
-
-	for _, ip := range ips {
-		ipStr := ip.String()
-		ipList = append(ipList, ipStr)
-		filterParts = append(filterParts, fmt.Sprintf("host %s", ipStr))
-	}
-
-	if len(filterParts) == 0 {
-		log.Fatal("No IPs found for host")
-	}
-
-	// ex: "host 104[.]18[.]26[.]120 or host 2606:4700::6812:1b78"
-	finalFilter := strings.Join(filterParts, " or ")
-
-	fmt.Printf("Target: %s\n", host)
-	fmt.Printf("Resolved IPs: %v\n", ipList)
-	fmt.Printf("BPF Filter: %s\n", finalFilter)
-
-	f, err := os.Create(outputFile) // os.Create(fineName)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer func() {
-		f.Close()
-		fmt.Println("\n>>> [System] File closed cleanly.")
-	}()
-
-	pcapWriter := pcapgo.NewWriter(f)
-
-	err = pcapWriter.WriteFileHeader(uint32(snapshotLen), layers.LinkTypeEthernet)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// OpenLive: oepn a live capture.
-	// pcap.OpenLive(interface, snaplen, promiscuous, timeout)
-	// return: handle, error
-	handle, err := pcap.OpenLive(deviceName, snapshotLen, promiscuous, errTimeout)
-	if err != nil {
-		log.Printf("디바이스 %s를 여는 데 실패했습니다: %v", deviceName, err)
-		log.Fatal("올바른 인터페이스 이름을 확인하거나 관리자 권한(sudo)으로 실행하세요.")
+		logFailure("인터페이스 열기 실패", err)
+		return
 	}
 	defer handle.Close()
 
-	// BPFFilter:
-	// TargetIP -> Copy to Application
-	// Others -> Drop (Ignore)
-	if err := handle.SetBPFFilter(finalFilter); err != nil {
-		log.Fatal("Failed applying filter:", err)
+	// BPF 필터 설정
+	filter := fmt.Sprintf("host %s and port 443", targetIP)
+	if err := handle.SetBPFFilter(filter); err != nil {
+		logFailure("BPF 필터 설정 실패", err)
+		return
 	}
 
-	isSuccess := false // if success
-	appDone := make(chan bool, 1)
+	// 4. 폴더 및 파일 경로 설정 (SNI별 정리)
+	outputBase := "output"
+	domainDir := filepath.Join(outputBase, domain)
+	if err := os.MkdirAll(domainDir, 0755); err != nil {
+		logFailure("폴더 생성 실패", err)
+		return
+	}
+
+	// 파일명 안전하게 생성 (슬래시 제거)
+	safePath := strings.ReplaceAll(path, "/", "_")
+	if safePath == "_" || safePath == "" {
+		safePath = "root"
+	}
+	pcapFilename := filepath.Join(domainDir, fmt.Sprintf("%s_%d.pcap", safePath, time.Now().Unix()))
+
+	pcapFile, err := os.Create(pcapFilename)
+	if err != nil {
+		logFailure("PCAP 파일 생성 실패", err)
+		return
+	}
+	defer pcapFile.Close()
+
+	pcapWriter := pcapgo.NewWriter(pcapFile)
+	pcapWriter.WriteFileHeader(uint32(snapLen), layers.LinkTypeEthernet)
+
+	// 5. 패킷 캡처 고루틴 설정
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(1)
 
 	go func() {
-		// waiting 1 second for make packetSource
-		fmt.Println(">>> Attemp to connect the website after 1 second...")
-		time.Sleep(1 * time.Second)
-
-		// tlsConfig := &tls.Config{
-		// 	MinVersion: tls.VersionTLS13, // 최소 버전 TLS 1.3
-		// 	MaxVersion: tls.VersionTLS13, // 최대 버전 TLS 1.3
-		// 	ServerName: host,             // SNI 설정
-		// }
-
-		tlsConfig := &tls.Config{
-			MinVersion: tls.VersionTLS12, // 최소 버전 TLS 1.2
-			MaxVersion: tls.VersionTLS12, // 최대 버전 TLS 1.2
-			ServerName: host,             // SNI 설정
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				data, ci, err := handle.ReadPacketData()
+				if err == pcap.NextErrorTimeoutExpired {
+					continue
+				}
+				if err != nil {
+					return
+				}
+				pcapWriter.WritePacket(ci, data)
+			}
 		}
+	}()
 
-		tr := &http.Transport{
-			DisableKeepAlives: true,
-			TLSClientConfig:   tlsConfig,
-			/*
-				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// TCP connect
-					conn, err := net.DialTimeout(network, addr, 10*time.Second)
-					if err != nil {
-						return nil, err
-					}
+	fmt.Println("[정보] 트래픽 캡처 시작...")
 
-					// wrapping utls client (using HelloCustom mode)
-					uConn := utls.UClient(conn, &utls.Config{
-						ServerName: host, // SNI setting
-					}, utls.HelloCustom)
+	// 6. TCP 연결 및 uTLS 핸드셰이크
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(targetIP, "443"), 5*time.Second)
+	if err != nil {
+		logFailure("TCP 연결 실패", err)
+		cancel()
+		wg.Wait()
+		return
+	}
 
-					//[Datail] deploying GREASE
-					spec := &utls.ClientHelloSpec{
-						// CipherSuites
-						CipherSuites: []uint16{
-							utls.GREASE_PLACEHOLDER,
-							utls.TLS_AES_128_GCM_SHA256,
-							utls.TLS_AES_256_GCM_SHA384,
-							utls.GREASE_PLACEHOLDER,
-							utls.TLS_CHACHA20_POLY1305_SHA256,
-						},
-						CompressionMethods: []uint8{0}, // no compression
+	// utls.HelloChrome_Auto : Chrome 최신 설정
+	// utls.HelloCustom : 커스텀 설정
+	uConn := utls.UClient(conn, &utls.Config{ServerName: domain}, utls.HelloChrome_Auto)
 
-						// Extensions
-						Extensions: []utls.TLSExtension{
-							&utls.UtlsGREASEExtension{},
-							&utls.SNIExtension{},
-							&utls.UtlsGREASEExtension{},
-							&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
-							&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
-							&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
-								{Group: utls.X25519},
-							}},
-							&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
-								utls.ECDSAWithP256AndSHA256,
-								utls.PSSWithSHA256,
-							}},
-						},
-					}
+	// TLS Spec 설정, ApplyPreset까지.
+	// spec := utls.ClientHelloSpec{
+	// 	TLSVersMin: utls.VersionTLS13,
+	// 	TLSVersMax: utls.VersionTLS13,
+	// 	CipherSuites: []uint16{
+	// 		utls.TLS_AES_128_GCM_SHA256,
+	// 		utls.TLS_CHACHA20_POLY1305_SHA256,
+	// 		utls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+	// 		utls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	// 	},
+	// 	Extensions: []utls.TLSExtension{
+	// 		&utls.SNIExtension{},
+	// 		&utls.SupportedCurvesExtension{Curves: []utls.CurveID{utls.X25519, utls.CurveP256}},
+	// 		&utls.SupportedPointsExtension{SupportedPoints: []byte{0}},
+	// 		&utls.SessionTicketExtension{},
+	// 		&utls.SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []utls.SignatureScheme{
+	// 			utls.ECDSAWithP256AndSHA256,
+	// 			utls.PSSWithSHA256,
+	// 			utls.PKCS1WithSHA256,
+	// 		}},
+	// 		&utls.KeyShareExtension{KeyShares: []utls.KeyShare{
+	// 			{Group: utls.CurveID(utls.X25519)},
+	// 		}},
+	// 		&utls.PSKKeyExchangeModesExtension{Modes: []uint8{1}},
+	// 		&utls.SupportedVersionsExtension{Versions: []uint16{utls.VersionTLS13, utls.VersionTLS12}},
+	// 	},
+	// }
 
-					if err := uConn.ApplyPreset(spec); err != nil {
-						return nil, err
-					}
+	// if err := uConn.ApplyPreset(&spec); err != nil {
+	// 	logFailure("uTLS 설정 실패", err)
+	//} else {
 
-					// handshake
-					if err := uConn.Handshake(); err != nil {
-						return nil, err
-					}
+	if err := uConn.Handshake(); err != nil {
+		logFailure("TLS 핸드셰이크 실패", err)
+	} else {
+		negotiated := uConn.ConnectionState().NegotiatedProtocol
+		fmt.Printf("[정보] TLS 핸드셰이크 성공 (Negotiated Protocol: %s)\n", negotiated)
 
+		var tr http.RoundTripper
+
+		if negotiated == "h2" {
+			tr = &http2.Transport{
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
 					return uConn, nil
 				},
-			*/
+			}
+		} else {
+			tr = &http.Transport{
+				DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+					return uConn, nil
+				},
+			}
 		}
-		client := http.Client{
+
+		client := &http.Client{
 			Transport: tr,
 			Timeout:   10 * time.Second,
 		}
 
-		resp, err := client.Get(targetURL)
-		if err != nil {
-			log.Printf("Connection error: %v", err)
-		} else {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close() // trigger FIN or Close_Notify
-			fmt.Printf(">>> [Client] Complete loading (Status: %d)\n", resp.StatusCode)
-			isSuccess = true
-		}
+		req, err := http.NewRequest("GET", "https://"+domain, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-		appDone <- true
-	}()
-
-	// NewPacketSource(): create packet data source
-	// handle: read packet data
-	// handle.LinkType(): select decoder automatic
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	packetChan := packetSource.Packets() // incoming channel for packet
-
-	fmt.Println("--- Starting Capture (Automatic shutdown when loading website) ---")
-
-	packetCount := 0
-
-	// Flags
-	isClosingMode := false // loading website done
-	isDraining := false    // after FIN
-
-	maxTeardownWait := 5 * time.Second
-	teardownTimer := time.NewTimer(maxTeardownWait)
-	teardownTimer.Stop()
-
-Loop:
-	for {
-		select {
-		case <-appDone:
-			fmt.Println("\n>>> [System] Get shutdown signal. Watching Teardown(FIN/RST)")
-			isClosingMode = true
-			teardownTimer.Reset(maxTeardownWait)
-
-		case <-teardownTimer.C:
-			if isDraining {
-				fmt.Println("\n>>> [System] Draining complete. Capture finished.")
-			} else {
-				fmt.Println("\n>>> [System] Timeout. Connection kept alive orunexpected delay.")
-			}
-			break Loop
-
-		case packet := <-packetChan:
-			if packet == nil {
-				break Loop
-			}
-
-			err := pcapWriter.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
+			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("Write Error: %v", err)
-			}
-			packetCount++
-			fmt.Printf("\rCaptured: %d packets | Last Size: %d bytes", packetCount, len(packet.Data()))
-
-			if isClosingMode && !isDraining {
-				tcpLayer := packet.Layer(layers.LayerTypeTCP)
-				if tcpLayer != nil {
-					tcp, _ := tcpLayer.(*layers.TCP)
-
-					// check if there is FIN/RST flag or not
-					if tcp.FIN || tcp.RST {
-						fmt.Println("\n>>> [System] Found FIN/RST packet.")
-						fmt.Println(">>> [System] Waitint 1s for remaining packets (ACKs)...")
-
-						isDraining = true
-						teardownTimer.Reset(1 * time.Second)
-					}
-				}
+				log.Printf("[실패] HTTP 요청 실패: %v\n", err)
+				logFailure("HTTP 요청 실패", err)
+			} else {
+				defer resp.Body.Close()
+				io.Copy(io.Discard, resp.Body)
+				fmt.Printf("[정보] 서버 응답 수신 완료 (상태 코드: %d)\n", resp.StatusCode)
 			}
 		}
 	}
 
-	// 경고: 패킷이 0개면 인터페이스 문제일 수 있음
-	if packetCount == 0 {
-		fmt.Println("\n\n[Error] 0 Packets captured! Check Interface or VPN.")
-		// defer f.Close()를 강제 실행시키기 위해 return 사용 (os.Exit은 defer 무시함)
-		return
-	}
+	uConn.Close()
+	conn.Close()
 
-	fmt.Printf("\nSaved File: %s\n", outputFile)
+	// 패킷 누락 방지를 위한 대기
+	fmt.Println("[정보] 종료 대기 중 (2초)...")
+	time.Sleep(2 * time.Second)
 
-	if isSuccess {
-		os.Exit(0)
-	} else {
-		os.Exit(1)
-	}
+	cancel()
+	wg.Wait()
+	fmt.Printf("[성공] %s 저장 완료\n\n", pcapFilename)
 }
