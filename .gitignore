@@ -13,3 +13,6 @@ main.exe
 
 # keylog files
 *.keylog
+
+# macOS dummy files
+.DS_Store
