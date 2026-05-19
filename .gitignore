@@ -10,3 +10,6 @@ main.exe
 # IDE configuration files
 .vscode/
 .idea/
+
+# keylog files
+*.keylog
